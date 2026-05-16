@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "crypto-trader-agent"
@@ -12,47 +12,47 @@ authors = [{ name = "Tyler", email = "harbtj7@gmail.com" }]
 
 dependencies = [
     # Broker / market data
-    "alpaca-py==0.38.0",
+    "alpaca-py==0.43.4",
     # LLM
     "anthropic==0.52.0",
     # Data
-    "pandas==2.2.3",
-    "numpy==1.26.4",
-    "pyarrow==18.1.0",
+    "pandas==3.0.2",
+    "numpy==2.2.6",
+    "pyarrow==22.0.0",
     # Technical analysis
     "ta==0.11.0",
     # ML
-    "scikit-learn==1.5.2",
+    "scikit-learn==1.7.2",
     # Backtesting
-    "backtesting==0.3.3",
+    "backtesting==0.6.5",
     # Scheduling
-    "APScheduler==3.10.4",
+    "APScheduler==3.11.2",
     # Web / dashboard
-    "fastapi==0.115.6",
-    "uvicorn[standard]==0.32.1",
-    "jinja2==3.1.4",
+    "fastapi==0.136.1",
+    "uvicorn[standard]==0.46.0",
+    "jinja2==3.1.6",
     "python-multipart==0.0.20",
     "httpx==0.28.1",
     # Config / secrets
-    "python-dotenv==1.0.1",
+    "python-dotenv==1.1.0",
     # Logging
     "structlog==24.4.0",
     # Schema validation
-    "pydantic==2.10.4",
+    "pydantic==2.11.4",
     "pydantic-settings==2.7.0",
     # Database
-    "sqlalchemy==2.0.36",
+    "sqlalchemy==2.0.41",
     "aiosqlite==0.20.0",
     # Utilities
-    "tenacity==9.0.0",
-    "rich==13.9.4",
+    "tenacity==9.1.2",
+    "rich==14.3.1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest==8.3.4",
-    "pytest-asyncio==0.24.0",
-    "pytest-cov==6.0.0",
+    "pytest==9.0.2",
+    "pytest-asyncio==0.26.0",
+    "pytest-cov==7.0.0",
     "pytest-mock==3.14.0",
     "ruff==0.8.6",
     "black==24.10.0",
@@ -94,7 +94,16 @@ log_cli = true
 log_cli_level = "INFO"
 
 [tool.coverage.run]
-omit = ["tests/*", "agent/dashboard/*", "agent/main.py"]
+omit = [
+    "tests/*",
+    "agent/dashboard/*",
+    "agent/main.py",
+    # IO-only modules: live API calls, not unit-testable without integration fixtures
+    "agent/data/ingestion.py",
+    "agent/reasoning/claude_adapter.py",
+    "agent/reasoning/local_adapter.py",
+    "scripts/*",
+]
 
 [tool.coverage.report]
 exclude_lines = [
