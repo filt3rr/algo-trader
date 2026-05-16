@@ -50,18 +50,21 @@ def run() -> None:
     btc_price = broker.get_latest_price("BTC/USD")
     print(f"BTC/USD last: ${float(btc_price):,.2f}")
 
-    # 3. Test order — submit then immediately cancel
+    # 3. Test order — limit buy at 50% of market price (will never fill; safe to cancel)
+    #    Alpaca requires cost_basis >= $10, so 0.001 BTC at ~50% price is well over that.
+    limit_price = (btc_price * Decimal("0.5")).quantize(Decimal("0.01"))
     req = OrderRequest(
         symbol="BTC/USD",
         side=OrderSide.BUY,
-        qty=Decimal("0.0001"),
-        type=OrderType.MARKET,
+        qty=Decimal("0.001"),
+        type=OrderType.LIMIT,
+        limit_price=limit_price,
     )
     order = broker.submit_order(req)
-    print(f"[ORDER]     Submitted buy 0.0001 BTC/USD (market) → id={order.id}")
+    print(f"[ORDER]     Submitted limit buy 0.001 BTC/USD @ ${float(limit_price):,.2f} -> id={order.id}")
 
     cancelled = broker.cancel_order(order.id)
-    status = "OK" if cancelled else "already filled (too fast!)"
+    status = "OK" if cancelled else "already filled (unexpected!)"
     print(f"[CANCELLED] Order {order.id} cancel: {status}")
 
     # 4. LLM adapter
