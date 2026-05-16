@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "crypto-trader-agent"
+version = "0.1.0"
+description = "Reflective reasoning crypto paper-trading agent"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Tyler", email = "harbtj7@gmail.com" }]
+
+dependencies = [
+    # Broker / market data
+    "alpaca-py==0.38.0",
+    # LLM
+    "anthropic==0.52.0",
+    # Data
+    "pandas==2.2.3",
+    "numpy==1.26.4",
+    "pyarrow==18.1.0",
+    # Technical analysis
+    "ta==0.11.0",
+    # ML
+    "scikit-learn==1.5.2",
+    # Backtesting
+    "backtesting==0.3.3",
+    # Scheduling
+    "APScheduler==3.10.4",
+    # Web / dashboard
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.32.1",
+    "jinja2==3.1.4",
+    "python-multipart==0.0.20",
+    "httpx==0.28.1",
+    # Config / secrets
+    "python-dotenv==1.0.1",
+    # Logging
+    "structlog==24.4.0",
+    # Schema validation
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.0",
+    # Database
+    "sqlalchemy==2.0.36",
+    "aiosqlite==0.20.0",
+    # Utilities
+    "tenacity==9.0.0",
+    "rich==13.9.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.24.0",
+    "pytest-cov==6.0.0",
+    "pytest-mock==3.14.0",
+    "ruff==0.8.6",
+    "black==24.10.0",
+    "pre-commit==4.0.1",
+    "freezegun==1.5.1",
+    "respx==0.21.1",
+]
+
+[project.scripts]
+trader = "agent.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent*", "tests*"]
+
+# ── Ruff ──────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "PTH", "SIM", "TCH"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agent"]
+
+# ── Black ─────────────────────────────────────────────────────────────────────
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+# ── Pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--cov=agent --cov-report=term-missing --cov-fail-under=80"
+log_cli = true
+log_cli_level = "INFO"
+
+[tool.coverage.run]
+omit = ["tests/*", "agent/dashboard/*", "agent/main.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]

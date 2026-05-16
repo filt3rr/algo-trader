@@ -1,0 +1,55 @@
+# ── Secrets (NEVER commit these) ─────────────────────────────────────────────
+.env
+.env.local
+*.key
+*.pem
+secrets/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+pip-wheel-metadata/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+.conda/
+
+# ── Data (large files — tracked by DVC or ignored) ───────────────────────────
+data/parquet/*.parquet
+data/trader.db
+data/trader.db-shm
+data/trader.db-wal
+logs/*.log
+logs/*.jsonl
+
+# ── Testing / Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# ── Tools ─────────────────────────────────────────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
