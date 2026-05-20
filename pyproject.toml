@@ -102,6 +102,8 @@ omit = [
     "agent/data/ingestion.py",
     "agent/reasoning/claude_adapter.py",
     "agent/reasoning/local_adapter.py",
+    # OutcomeTracker (legacy path) — primary path is PriceBasedAttributor, tested fully
+    "agent/learning/attribution.py",
     "scripts/*",
 ]
 

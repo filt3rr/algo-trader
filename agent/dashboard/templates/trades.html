@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Trades — Apex Console{% endblock %}
+{% block topbar_title %}Trades{% endblock %}
+{% block topbar_sub %}{{ total }} total trades{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Submitted</th>
+          <th>Symbol</th>
+          <th>Side</th>
+          <th class="right">Qty</th>
+          <th class="right">Avg Price</th>
+          <th class="right">Notional</th>
+          <th>Status</th>
+          <th>Broker Order ID</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in rows %}
+        <tr>
+          <td class="td-mono">{{ t.submitted_at[:16].replace('T', ' ') if t.submitted_at else '—' }}</td>
+          <td><strong>{{ t.symbol }}</strong></td>
+          <td>
+            {% if t.side == 'buy' %}
+              <span class="badge badge-buy">Buy</span>
+            {% else %}
+              <span class="badge badge-sell">Sell</span>
+            {% endif %}
+          </td>
+          <td class="right">{{ t.qty or '—' }}</td>
+          <td class="right">{{ fmt_usd(t.fill_price) }}</td>
+          <td class="right">{{ fmt_usd(t.order_value) }}</td>
+          <td>
+            {% if t.status == 'open' %}
+              <span class="badge badge-info">Open</span>
+            {% elif t.status == 'filled' %}
+              <span class="badge badge-buy">Filled</span>
+            {% elif t.status == 'cancelled' %}
+              <span class="badge badge-hold">Cancelled</span>
+            {% else %}
+              <span class="badge badge-hold">{{ t.status | title if t.status else '—' }}</span>
+            {% endif %}
+          </td>
+          <td class="td-mono">{{ t.order_id or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="empty-state">No trades recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    <span>Showing {{ ((current_page - 1) * 25) + 1 }}–{{ [current_page * 25, total] | min }} of {{ total }}</span>
+    <div class="page-links">
+      <a href="?page={{ current_page - 1 }}" class="page-btn {% if current_page <= 1 %}off{% endif %}">&laquo; Prev</a>
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == current_page or p <= 2 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
+          <a href="?page={{ p }}" class="page-btn {% if p == current_page %}cur{% endif %}">{{ p }}</a>
+        {% elif p == 3 or p == total_pages - 2 %}
+          <span class="page-btn off">…</span>
+        {% endif %}
+      {% endfor %}
+      <a href="?page={{ current_page + 1 }}" class="page-btn {% if current_page >= total_pages %}off{% endif %}">Next &raquo;</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Decisions — Apex Console{% endblock %}
+{% block topbar_title %}Decisions{% endblock %}
+{% block topbar_sub %}{{ total }} total decisions{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <!-- Filter bar -->
+  <form method="get" action="/decisions">
+    <div class="filter-bar">
+      <label>Symbol</label>
+      <select name="symbol">
+        <option value="">All</option>
+        {% for sym in all_symbols %}
+        <option value="{{ sym }}" {% if filter_symbol == sym %}selected{% endif %}>{{ sym }}</option>
+        {% endfor %}
+      </select>
+
+      <label>Action</label>
+      <select name="action">
+        <option value="">All</option>
+        <option value="buy"  {% if filter_action == 'buy'  %}selected{% endif %}>Buy</option>
+        <option value="sell" {% if filter_action == 'sell' %}selected{% endif %}>Sell</option>
+        <option value="hold" {% if filter_action == 'hold' %}selected{% endif %}>Hold</option>
+      </select>
+
+      <label>Outcome</label>
+      <select name="outcome">
+        <option value="">All</option>
+        <option value="attributed" {% if filter_outcome == 'attributed' %}selected{% endif %}>Attributed</option>
+        <option value="pending"    {% if filter_outcome == 'pending'    %}selected{% endif %}>Pending</option>
+      </select>
+
+      <button type="submit" class="btn-filter">Filter</button>
+      {% if filter_symbol or filter_action or filter_outcome %}
+      <a href="/decisions" style="font-size:12px; color:var(--slate-500)">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Symbol</th>
+          <th>Action</th>
+          <th class="right">Confidence</th>
+          <th class="right">Edge Est.</th>
+          <th class="right">Outcome P&amp;L</th>
+          <th class="td-wrap">Rationale</th>
+          <th class="td-wrap">Risk Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in rows %}
+        <tr>
+          <td class="td-mono">{{ d.decided_at[:16].replace('T', ' ') }}</td>
+          <td><strong>{{ d.symbol }}</strong></td>
+          <td>
+            {% if d.action == 'buy' %}
+              <span class="badge badge-buy">Buy</span>
+            {% elif d.action == 'sell' %}
+              <span class="badge badge-sell">Sell</span>
+            {% else %}
+              <span class="badge badge-hold">Hold</span>
+            {% endif %}
+          </td>
+          <td class="right">{{ fmt_pct(d.confidence * 100) if d.confidence is not none else '—' }}</td>
+          <td class="right">{{ fmt_pct(d.edge_estimate * 100) if d.edge_estimate is not none else '—' }}</td>
+          <td class="right">
+            {% if d.outcome_pnl_pct is not none %}
+              {% set pnl = (d.outcome_pnl_pct * 100) | round(2) %}
+              <span class="{% if pnl >= 0 %}pos{% else %}neg{% endif %}">{{ fmt_pct(pnl) }}</span>
+            {% else %}
+              <span class="muted">Pending</span>
+            {% endif %}
+          </td>
+          <td class="td-wrap">{{ d.rationale or '—' }}</td>
+          <td class="td-wrap td-muted">{{ d.risk_notes or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="empty-state">No decisions match the current filter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    <span>Showing {{ ((current_page - 1) * 25) + 1 }}–{{ [current_page * 25, total] | min }} of {{ total }}</span>
+    <div class="page-links">
+      <a href="?page={{ current_page - 1 }}&symbol={{ filter_symbol }}&action={{ filter_action }}&outcome={{ filter_outcome }}"
+         class="page-btn {% if current_page <= 1 %}off{% endif %}">&laquo; Prev</a>
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == current_page or p <= 2 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
+          <a href="?page={{ p }}&symbol={{ filter_symbol }}&action={{ filter_action }}&outcome={{ filter_outcome }}"
+             class="page-btn {% if p == current_page %}cur{% endif %}">{{ p }}</a>
+        {% elif p == 3 or p == total_pages - 2 %}
+          <span class="page-btn off" style="pointer-events:none">…</span>
+        {% endif %}
+      {% endfor %}
+      <a href="?page={{ current_page + 1 }}&symbol={{ filter_symbol }}&action={{ filter_action }}&outcome={{ filter_outcome }}"
+         class="page-btn {% if current_page >= total_pages %}off{% endif %}">Next &raquo;</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

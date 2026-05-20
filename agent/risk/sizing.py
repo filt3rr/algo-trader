@@ -34,6 +34,9 @@ _MIN_ORDER_USD: Decimal = Decimal("15")
 # Kelly multiplier — half-Kelly for variance reduction
 _KELLY_FRACTION: float = 0.5
 
+# Minimum LLM confidence to place any order — below this, skip regardless of Kelly
+_MIN_CONFIDENCE: float = 0.30
+
 
 def kelly_size(
     portfolio_value: Decimal,
@@ -128,8 +131,13 @@ def compute_order_size(
     """Unified sizing: Kelly size clamped by concentration cap.
 
     This is the function the trading loop should call. It returns 0 if either
-    the Kelly size is below minimum or the concentration cap is already hit.
+    the confidence is below the minimum threshold, the Kelly size is below
+    minimum, or the concentration cap is already hit.
     """
+    if confidence < _MIN_CONFIDENCE:
+        log.debug("Confidence %.2f below minimum %.2f, skipping order", confidence, _MIN_CONFIDENCE)
+        return Decimal("0")
+
     kelly = kelly_size(portfolio_value, entry_price, confidence, edge_estimate, settings)
     if kelly == 0:
         return Decimal("0")

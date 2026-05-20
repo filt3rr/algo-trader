@@ -1,0 +1,47 @@
+{% if recent_decisions %}
+<div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Symbol</th>
+        <th>Action</th>
+        <th>Confidence</th>
+        <th>Edge Est.</th>
+        <th>Outcome P&amp;L</th>
+        <th class="td-wrap">Rationale</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in recent_decisions %}
+      <tr>
+        <td class="td-mono">{{ d.decided_at[:16].replace('T', ' ') }}</td>
+        <td><strong>{{ d.symbol }}</strong></td>
+        <td>
+          {% if d.action == 'buy' %}
+            <span class="badge badge-buy">Buy</span>
+          {% elif d.action == 'sell' %}
+            <span class="badge badge-sell">Sell</span>
+          {% else %}
+            <span class="badge badge-hold">Hold</span>
+          {% endif %}
+        </td>
+        <td>{{ fmt_pct(d.confidence * 100) if d.confidence is not none else '—' }}</td>
+        <td>{{ fmt_pct(d.edge_estimate * 100) if d.edge_estimate is not none else '—' }}</td>
+        <td>
+          {% if d.outcome_pnl_pct is not none %}
+            {% set pnl = (d.outcome_pnl_pct * 100) | round(2) %}
+            <span class="{% if pnl >= 0 %}pos{% else %}neg{% endif %}">{{ fmt_pct(pnl) }}</span>
+          {% else %}
+            <span class="muted">Pending</span>
+          {% endif %}
+        </td>
+        <td class="td-wrap">{{ d.rationale or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">No decisions recorded yet.</div>
+{% endif %}

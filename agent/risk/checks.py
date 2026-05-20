@@ -242,6 +242,49 @@ class RiskChecker:
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
+    def get_daily_pnl_pct(self, current_portfolio_value: Decimal) -> float:
+        """Return today's P&L as a fraction (e.g. -0.02 for -2%).
+
+        Returns 0.0 if the day-open value has not been recorded yet.
+        """
+        open_val = self._cb.day_open_portfolio_value
+        if open_val is None or open_val <= 0:
+            return 0.0
+        return float((current_portfolio_value - open_val) / open_val)
+
+    def export_state(self) -> dict:
+        """Serialize circuit breaker state for DB persistence (JSON-serialisable)."""
+        return {
+            "triggered": self._cb.triggered,
+            "trigger_reason": self._cb.trigger_reason,
+            "triggered_at": self._cb.triggered_at.isoformat() if self._cb.triggered_at else None,
+            "day_open_portfolio_value": str(self._cb.day_open_portfolio_value)
+            if self._cb.day_open_portfolio_value is not None else None,
+            "reset_date": self._cb.reset_date.isoformat() if self._cb.reset_date else None,
+        }
+
+    def import_state(self, state: dict) -> None:
+        """Restore circuit breaker state from a previously exported dict.
+
+        Called at startup to re-hydrate in-memory state from DB, so a process
+        restart does not reset the daily loss limit mid-day.
+        """
+        self._cb.triggered = bool(state.get("triggered", False))
+        self._cb.trigger_reason = state.get("trigger_reason", "")
+        triggered_at = state.get("triggered_at")
+        self._cb.triggered_at = datetime.fromisoformat(triggered_at) if triggered_at else None
+        day_open = state.get("day_open_portfolio_value")
+        self._cb.day_open_portfolio_value = Decimal(day_open) if day_open else None
+        reset_date = state.get("reset_date")
+        self._cb.reset_date = date.fromisoformat(reset_date) if reset_date else None
+        # Let reset_if_new_day() clear stale state if we've crossed midnight
+        self._cb.reset_if_new_day()
+        if self._cb.triggered:
+            log.info(
+                "Circuit breaker state restored: triggered=True reason=%s",
+                self._cb.trigger_reason,
+            )
+
     def _check_circuit_breaker(self, order: OrderRequest, account: AccountInfo) -> bool:
         """Circuit breaker blocks new BUY entries only. Sells always pass."""
         if order.side == OrderSide.SELL:

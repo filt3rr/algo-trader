@@ -110,27 +110,33 @@ def add_volume_features(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
     return df
 
 
-def add_market_regime(df: pd.DataFrame) -> pd.DataFrame:
-    """Add a simple market regime label: trending_up, trending_down, ranging.
+def add_market_regime(df: pd.DataFrame, adx_period: int = 14, adx_threshold: float = 25.0) -> pd.DataFrame:
+    """Add market regime label: trending_up, trending_down, ranging.
 
-    Uses 50-period EMA slope and 20-period ATR relative to price.
+    Uses ADX + directional indicators — consistent with the live signal engine.
+    trending_up:   ADX >= threshold AND +DI > -DI
+    trending_down: ADX >= threshold AND +DI <= -DI
+    ranging:       ADX < threshold
+
+    Falls back to all-ranging if high/low columns are absent.
     """
+    import ta
     df = df.copy()
-    if "ema_50" not in df.columns:
-        df = add_ema(df, [50])
+    if not {"high", "low", "close"}.issubset(df.columns):
+        df["market_regime"] = "ranging"
+        return df
 
-    ema_slope = df["ema_50"].diff(5) / df["ema_50"].shift(5)
-    atr_window = 14
-    tr = pd.concat([
-        df["high"] - df["low"],
-        (df["high"] - df["close"].shift()).abs(),
-        (df["low"] - df["close"].shift()).abs(),
-    ], axis=1).max(axis=1)
-    atr_pct = tr.rolling(atr_window).mean() / df["close"]
+    adx_ind  = ta.trend.ADXIndicator(
+        high=df["high"], low=df["low"], close=df["close"], window=adx_period
+    )
+    adx      = adx_ind.adx()
+    plus_di  = adx_ind.adx_pos()
+    minus_di = adx_ind.adx_neg()
 
+    trending = adx >= adx_threshold
     conditions = [
-        (ema_slope > 0.01) & (atr_pct < 0.03),
-        (ema_slope < -0.01) & (atr_pct < 0.03),
+        trending & (plus_di > minus_di),
+        trending & (plus_di <= minus_di),
     ]
     choices = ["trending_up", "trending_down"]
     df["market_regime"] = np.select(conditions, choices, default="ranging")

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Signals — Apex Console{% endblock %}
+{% block topbar_title %}Signals{% endblock %}
+{% block topbar_sub %}Adaptive weights &amp; per-symbol state{% endblock %}
+
+{% block content %}
+
+<div class="grid-2-1">
+  <!-- Weight bars -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Current Signal Weights</span>
+    </div>
+    <div class="weight-rows">
+      {% set ema_pct = (current_weights.get('ema', 0.333) * 100) | round(1) %}
+      {% set rsi_pct = (current_weights.get('rsi', 0.333) * 100) | round(1) %}
+      {% set roc_pct = (current_weights.get('roc', 0.333) * 100) | round(1) %}
+      <div class="weight-row">
+        <span class="weight-sig-label">EMA</span>
+        <div class="weight-track"><div class="weight-fill" style="width:{{ ema_pct }}%"></div></div>
+        <span class="weight-pct">{{ ema_pct }}%</span>
+      </div>
+      <div class="weight-row">
+        <span class="weight-sig-label">RSI</span>
+        <div class="weight-track"><div class="weight-fill rsi" style="width:{{ rsi_pct }}%"></div></div>
+        <span class="weight-pct">{{ rsi_pct }}%</span>
+      </div>
+      <div class="weight-row">
+        <span class="weight-sig-label">ROC</span>
+        <div class="weight-track"><div class="weight-fill roc" style="width:{{ roc_pct }}%"></div></div>
+        <span class="weight-pct">{{ roc_pct }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weight history chart -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Weight History</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="weightChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Per-symbol latest signals -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Latest Signal State by Symbol</span>
+  </div>
+  {% if latest_by_symbol %}
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Last Decision</th>
+          <th>Action</th>
+          <th class="right">Confidence</th>
+          <th class="right">Edge Est.</th>
+          <th class="right">Composite Score</th>
+          <th class="td-wrap">Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sym in latest_by_symbol.keys() | sort %}{% set d = latest_by_symbol[sym] %}
+        <tr>
+          <td><strong>{{ sym }}</strong></td>
+          <td class="td-mono">{{ d.decided_at[:16].replace('T', ' ') }}</td>
+          <td>
+            {% if d.action == 'buy' %}
+              <span class="badge badge-buy">Buy</span>
+            {% elif d.action == 'sell' %}
+              <span class="badge badge-sell">Sell</span>
+            {% else %}
+              <span class="badge badge-hold">Hold</span>
+            {% endif %}
+          </td>
+          <td class="right">{{ fmt_pct(d.confidence * 100) if d.confidence is not none else '—' }}</td>
+          <td class="right">{{ fmt_pct(d.edge_estimate * 100) if d.edge_estimate is not none else '—' }}</td>
+          <td class="right">{{ fmt_num(d.composite_signal) if d.composite_signal is not none else '—' }}</td>
+          <td class="td-wrap">{{ d.rationale or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">No decisions recorded yet.</div>
+  {% endif %}
+</div>
+
+<!-- Weight history table -->
+{% if weight_history %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Weight History Log</span>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th class="right">EMA</th>
+          <th class="right">RSI</th>
+          <th class="right">ROC</th>
+          <th>Source</th>
+          <th class="td-wrap">Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in weight_history %}
+        <tr>
+          <td class="td-mono">{{ w.set_at[:16].replace('T', ' ') }}</td>
+          <td class="right">{{ fmt_pct(w.ema * 100) }}</td>
+          <td class="right">{{ fmt_pct(w.rsi * 100) }}</td>
+          <td class="right">{{ fmt_pct(w.roc * 100) }}</td>
+          <td><span class="badge badge-hold">{{ w.source or 'reflection' }}</span></td>
+          <td class="td-wrap">{{ w.rationale or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const labels = {{ wh_labels | safe }};
+  const ema    = {{ wh_ema | safe }};
+  const rsi    = {{ wh_rsi | safe }};
+  const roc    = {{ wh_roc | safe }};
+
+  const ctx = document.getElementById('weightChart');
+  if (!ctx || !labels.length) return;
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'EMA',
+          data: ema,
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          pointRadius: 2,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: 'RSI',
+          data: rsi,
+          borderColor: '#10b981',
+          borderWidth: 2,
+          pointRadius: 2,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: 'ROC',
+          data: roc,
+          borderColor: '#f59e0b',
+          borderWidth: 2,
+          pointRadius: 2,
+          tension: 0.3,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { boxWidth: 12, font: { size: 11 }, color: '#94a3b8' },
+        },
+        tooltip: {
+          backgroundColor: '#1a2235',
+          borderColor: '#2d3f5e',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          callbacks: {
+            label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%',
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 6, font: { size: 11 }, color: '#475569' },
+          grid: { display: false },
+          border: { display: false },
+        },
+        y: {
+          min: 0, max: 100,
+          ticks: { font: { size: 11 }, color: '#475569', callback: v => v + '%' },
+          grid: { color: '#1e2d45' },
+          border: { display: false },
+        },
+      },
+    },
+  });
+})();
+</script>
+{% endblock %}

@@ -41,18 +41,39 @@ class Settings(BaseSettings):
     alpaca_data_url: str = "https://data.alpaca.markets"
 
     # ── LLM ──────────────────────────────────────────────────────────────────
+    # LLM_PROVIDER controls trading decisions. REFLECTION_LLM_PROVIDER controls
+    # the nightly reflection call — defaults to the same value as LLM_PROVIDER
+    # but can be set to "claude" to keep the complex reflection on the stronger
+    # model while routing cheap per-symbol decisions to local inference.
     llm_provider: LLMProvider = LLMProvider.CLAUDE
+    reflection_llm_provider: LLMProvider | None = None  # None = same as llm_provider
     anthropic_api_key: str = ""
-    claude_model: str = "claude-sonnet-4-5"
+    claude_model: str = "claude-sonnet-4-6"
     local_llm_base_url: str = "http://localhost:11434"
-    local_llm_model: str = "llama3.1:8b"
+    local_llm_model: str = "qwen2.5:7b"
+    # Maximum seconds to wait for Ollama to finish generating a response.
+    # Increase if your GPU is slow or you switch to a larger model.
+    local_llm_timeout: int = 120
+
+    # ── Pre-filter ────────────────────────────────────────────────────────────
+    # Skip the LLM entirely for symbols with no open position and a composite
+    # signal weaker than this threshold. The LLM was going to hold anyway.
+    # Set to 0.0 to disable (always call LLM).
+    signal_prefilter_threshold: float = 0.2
 
     # ── Universe ──────────────────────────────────────────────────────────────
     # Kept as a plain str so pydantic-settings 2.7 does not attempt JSON-decode.
     # Use the `.universe` property for the parsed list.
+    # When COINGECKO_API_KEY is set, trading_universe is used only as the
+    # startup fallback — the live universe is managed by UniverseScreener.
     trading_universe: str = Field(
         default="BTC/USD,ETH/USD,SOL/USD,AVAX/USD,MATIC/USD,LINK/USD,DOT/USD,ADA/USD",
     )
+
+    # ── CoinGecko ─────────────────────────────────────────────────────────────
+    coingecko_api_key: str = ""
+    # Max symbols in the dynamic universe (Alpaca crypto pool is ~30–40 total)
+    universe_size: int = 20
 
     # ── Risk ─────────────────────────────────────────────────────────────────
     max_risk_per_trade_pct: float = 0.02
@@ -61,7 +82,7 @@ class Settings(BaseSettings):
     daily_loss_limit_pct: float = 0.05
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
-    trading_loop_seconds: int = 300
+    trading_loop_seconds: int = 3600
     reflection_hour: int = 23
 
     # ── Storage ───────────────────────────────────────────────────────────────
@@ -75,6 +96,7 @@ class Settings(BaseSettings):
 
     # ── Feature flags ─────────────────────────────────────────────────────────
     live_trading_enabled: bool = False
+    dry_run: bool = True   # True = log decisions, no real orders submitted
 
     # ── Reproducibility ───────────────────────────────────────────────────────
     random_seed: int = 42
@@ -111,7 +133,11 @@ class Settings(BaseSettings):
 
     @property
     def db_url(self) -> str:
-        return f"sqlite+aiosqlite:///{self.db_path}"
+        path = Path(self.db_path)
+        if not path.is_absolute():
+            # Resolve relative paths from the project root (parent of agent/)
+            path = Path(__file__).parent.parent / path
+        return f"sqlite+aiosqlite:///{path}"
 
     @property
     def parquet_path(self) -> Path:

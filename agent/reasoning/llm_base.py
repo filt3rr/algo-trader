@@ -82,18 +82,25 @@ class LLMAdapter(ABC):
         return f"{self.__class__.__name__}(model={self.model_id!r})"
 
 
-def get_llm_adapter() -> LLMAdapter:
-    """Factory: return the configured LLM adapter based on LLM_PROVIDER env var."""
+def get_llm_adapter(provider: str | None = None) -> LLMAdapter:
+    """Factory: return the configured LLM adapter.
+
+    Args:
+        provider: Override the provider ('claude' or 'local'). When None, reads
+                  LLM_PROVIDER from settings. Useful for running decisions on
+                  one backend and reflection on another.
+    """
     from agent.config import get_settings, LLMProvider
 
     cfg = get_settings()
+    active = LLMProvider(provider) if provider else cfg.llm_provider
 
-    if cfg.llm_provider == LLMProvider.CLAUDE:
+    if active == LLMProvider.CLAUDE:
         from agent.reasoning.claude_adapter import ClaudeAdapter
         return ClaudeAdapter(cfg)
 
-    if cfg.llm_provider == LLMProvider.LOCAL:
+    if active == LLMProvider.LOCAL:
         from agent.reasoning.local_adapter import LocalLLMAdapter
         return LocalLLMAdapter(cfg)
 
-    raise ValueError(f"Unknown LLM_PROVIDER: {cfg.llm_provider!r}")
+    raise ValueError(f"Unknown LLM_PROVIDER: {active!r}")

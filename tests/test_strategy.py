@@ -250,8 +250,8 @@ def test_backtest_unknown_signal_raises() -> None:
         run_backtest(df, "INVALID", symbol="TEST/USD")  # type: ignore[arg-type]
 
 
-def test_run_all_signals_returns_three() -> None:
+def test_run_all_signals_returns_four() -> None:
     from agent.strategy.backtest import run_all_signals
     df = _make_ohlcv(n=365)
     results = run_all_signals(df, symbol="TEST/USD")
-    assert set(results.keys()) == {"EMA", "RSI", "ROC"}
+    assert set(results.keys()) == {"EMA", "RSI", "ROC", "COMPOSITE"}

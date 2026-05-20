@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Overview — Apex Console{% endblock %}
+{% block topbar_title %}Portfolio Overview{% endblock %}
+{% block topbar_sub %}Live performance &amp; recent activity{% endblock %}
+
+{% block content %}
+
+{% include "partials/circuit_breaker.html" %}
+{% include "partials/kpi_cards.html" %}
+
+<!-- Performance chart + signal weights -->
+<div class="grid-2-1">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="card-title-dot"></span>Cumulative Return — 30 days</span>
+      <a href="/signals" class="card-action">Signals →</a>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="perfChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="card-title-dot" style="background:var(--purple)"></span>Adaptive Signal Weights</span>
+      <a href="/signals" class="card-action">History →</a>
+    </div>
+    <div class="weight-rows">
+      {% set ema_pct = (current_weights.get('ema', 0.333) * 100) | round(1) %}
+      {% set rsi_pct = (current_weights.get('rsi', 0.333) * 100) | round(1) %}
+      {% set roc_pct = (current_weights.get('roc', 0.333) * 100) | round(1) %}
+      <div class="weight-row">
+        <span class="weight-sig-label">EMA</span>
+        <div class="weight-track"><div class="weight-fill" style="width:{{ ema_pct }}%"></div></div>
+        <span class="weight-pct">{{ ema_pct }}%</span>
+      </div>
+      <div class="weight-row">
+        <span class="weight-sig-label">RSI</span>
+        <div class="weight-track"><div class="weight-fill rsi" style="width:{{ rsi_pct }}%"></div></div>
+        <span class="weight-pct">{{ rsi_pct }}%</span>
+      </div>
+      <div class="weight-row">
+        <span class="weight-sig-label">ROC</span>
+        <div class="weight-track"><div class="weight-fill roc" style="width:{{ roc_pct }}%"></div></div>
+        <span class="weight-pct">{{ roc_pct }}%</span>
+      </div>
+    </div>
+    <div style="padding:12px 16px; border-top:1px solid var(--border); display:flex; justify-content:space-between;">
+      <span style="font-size:11px; color:var(--txt-3);">{{ total_decisions }} decisions</span>
+      <span style="font-size:11px; color:var(--txt-3);">{{ total_trades }} trades</span>
+      <a href="/system" style="font-size:11px; color:var(--blue);">System →</a>
+    </div>
+  </div>
+</div>
+
+<!-- Recent decisions live feed -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title"><span class="card-title-dot" style="background:var(--amber)"></span>Recent Decisions</span>
+    <a href="/decisions" class="card-action">View all →</a>
+  </div>
+  <div id="recent-decisions-wrap"
+       hx-get="/partials/recent-decisions"
+       hx-trigger="every 60s"
+       hx-swap="innerHTML">
+    {% include "partials/recent_decisions.html" %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const labels = {{ chart_labels | safe }};
+  const values = {{ chart_values | safe }};
+  const ctx = document.getElementById('perfChart');
+  if (!ctx || !labels.length) return;
+
+  const positive = values[values.length - 1] >= 0;
+  const lineColor = positive ? '#10b981' : '#ef4444';
+  const fillColor = positive ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cumulative Return %',
+        data: values,
+        borderColor: lineColor,
+        backgroundColor: fillColor,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.35,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2235',
+          borderColor: '#1e2d45',
+          borderWidth: 1,
+          titleColor: '#94a3b8',
+          bodyColor: '#e2e8f0',
+          callbacks: {
+            label: ctx => (ctx.parsed.y >= 0 ? '+' : '') + ctx.parsed.y.toFixed(3) + '%',
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 8, font: { size: 10 }, color: '#475569' },
+          grid: { display: false },
+          border: { display: false },
+        },
+        y: {
+          ticks: {
+            font: { size: 10 }, color: '#475569',
+            callback: v => (v >= 0 ? '+' : '') + v + '%',
+          },
+          grid: { color: '#1e2d45' },
+          border: { display: false },
+        },
+      },
+    },
+  });
+})();
+</script>
+{% endblock %}

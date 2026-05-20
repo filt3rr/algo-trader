@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Positions — Apex Console{% endblock %}
+{% block topbar_title %}Positions{% endblock %}
+{% block topbar_sub %}{{ open_positions | length }} open buy positions{% endblock %}
+
+{% block content %}
+
+{% if cb_active %}
+<div class="alert alert-danger">
+  Circuit Breaker Active — new BUY orders suspended.
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Open Buy Positions</span>
+  </div>
+  {% if open_positions %}
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Submitted</th>
+          <th>Symbol</th>
+          <th>Side</th>
+          <th class="right">Qty</th>
+          <th class="right">Avg Price</th>
+          <th class="right">Notional</th>
+          <th>Broker Order ID</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in open_positions %}
+        <tr>
+          <td class="td-mono">{{ t.submitted_at[:16].replace('T', ' ') if t.submitted_at else '—' }}</td>
+          <td><strong>{{ t.symbol }}</strong></td>
+          <td><span class="badge badge-buy">{{ t.side | title }}</span></td>
+          <td class="right">{{ t.qty or '—' }}</td>
+          <td class="right">{{ fmt_usd(t.fill_price) }}</td>
+          <td class="right">{{ fmt_usd(t.order_value) }}</td>
+          <td class="td-mono">{{ t.order_id or '—' }}</td>
+          <td>
+            {% if t.status == 'open' %}
+              <span class="badge badge-info">Open</span>
+            {% elif t.status == 'filled' %}
+              <span class="badge badge-buy">Filled</span>
+            {% else %}
+              <span class="badge badge-hold">{{ t.status | title }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">No open positions.</div>
+  {% endif %}
+</div>
+{% endblock %}

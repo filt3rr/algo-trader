@@ -1,0 +1,15 @@
+{% if cb_active %}
+<div class="alert alert-danger"
+     hx-get="/partials/circuit-breaker"
+     hx-trigger="every 60s"
+     hx-swap="outerHTML">
+  <strong>Circuit Breaker Active</strong> — daily drawdown exceeded 5%. All BUY orders suspended until next UTC day reset.
+  {% if latest_perf and latest_perf.daily_return_pct is not none %}
+    Current daily return: {{ fmt_pct(latest_perf.daily_return_pct * 100) }}.
+  {% endif %}
+</div>
+{% else %}
+<div hx-get="/partials/circuit-breaker"
+     hx-trigger="every 60s"
+     hx-swap="outerHTML"></div>
+{% endif %}

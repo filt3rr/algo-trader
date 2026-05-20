@@ -44,6 +44,12 @@ coverage.xml
 .mypy_cache/
 .hypothesis/
 
+# ── Claude Code session data ──────────────────────────────────────────────────
+.claude/projects/
+
+# ── Generated output ──────────────────────────────────────────────────────────
+data/backtest_results.json
+
 # ── IDEs ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/

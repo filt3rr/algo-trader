@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+{% block title %}System Logs — Apex Console{% endblock %}
+{% block topbar_title %}System Logs{% endblock %}
+{% block topbar_sub %}Full agent diagnostics, API health, model telemetry{% endblock %}
+
+{% block content %}
+
+{% if cb_active %}
+<div class="alert alert-danger" id="cb-alert"
+     hx-get="/partials/circuit-breaker"
+     hx-trigger="every 60s"
+     hx-swap="outerHTML">
+  ⚡ Circuit Breaker Active — daily drawdown exceeded 5%. All BUY orders suspended.
+</div>
+{% endif %}
+
+<!-- ── Top stat banner ─────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="stat-grid" style="grid-template-columns: repeat(8,1fr);">
+    <div class="stat-cell">
+      <div class="stat-label">Total Decisions</div>
+      <div class="stat-val">{{ total_decisions | fmt_num }}</div>
+      <div class="stat-sub">all time</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Buys</div>
+      <div class="stat-val pos">{{ buy_count }}</div>
+      <div class="stat-sub">action=buy</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Sells</div>
+      <div class="stat-val neg">{{ sell_count }}</div>
+      <div class="stat-sub">action=sell</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Auto-Holds</div>
+      <div class="stat-val">{{ hold_count }}</div>
+      <div class="stat-sub">{{ hold_pct }}% of all</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Win Rate</div>
+      <div class="stat-val {% if win_rate >= 50 %}pos{% else %}neg{% endif %}">{{ win_rate }}%</div>
+      <div class="stat-sub">{{ win_count }} / {{ attributed_count }} attr.</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Attribution</div>
+      <div class="stat-val">{{ attribution_rate }}%</div>
+      <div class="stat-sub">{{ attributed_count }} outcomes</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Total Trades</div>
+      <div class="stat-val">{{ total_trades }}</div>
+      <div class="stat-sub">{{ filled_trades }} filled</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Reflections</div>
+      <div class="stat-val">{{ reflection_count }}</div>
+      <div class="stat-sub">{{ weight_revisions }} weight updates</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 1: System Config + API Connections ───────────────────────────── -->
+<div class="grid-1-1" style="margin-bottom:0;">
+
+  <!-- System Configuration -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="card-title-dot" style="background:var(--purple)"></span>System Configuration</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Trading Mode</span>
+      <span class="info-value">
+        {% if dry_run %}
+          <span class="badge badge-warn">Dry Run</span>
+        {% else %}
+          <span class="badge badge-error">Live Trading</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Decision Model</span>
+      <span class="info-value mono">{{ decision_model }}</span>
+      <span class="badge badge-{% if llm_provider == 'local' %}cyan{% else %}purple{% endif %} info-badge">{{ llm_provider }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Reflection Model</span>
+      <span class="info-value mono">{{ reflection_model }}</span>
+      <span class="badge badge-purple info-badge">claude</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Ollama Endpoint</span>
+      <span class="info-value mono">{{ cfg.local_llm_base_url }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Trading Cycle</span>
+      <span class="info-value">{{ cfg.trading_loop_seconds }}s ({{ (cfg.trading_loop_seconds / 60) | round(1) }} min)</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Reflection Hour</span>
+      <span class="info-value">{{ cfg.reflection_hour }}:00 UTC nightly</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Signal Prefilter</span>
+      <span class="info-value">|composite| &lt; {{ cfg.signal_prefilter_threshold }} → auto-hold</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Universe Size</span>
+      <span class="info-value">{{ cfg.universe_size }} symbols max</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">LLM Timeout</span>
+      <span class="info-value">{{ cfg.local_llm_timeout }}s read / 10s connect</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Max Risk / Trade</span>
+      <span class="info-value">{{ (cfg.max_risk_per_trade_pct * 100) | round(1) }}% of portfolio</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Max Position</span>
+      <span class="info-value">{{ (cfg.max_position_pct * 100) | round(0) | int }}% concentration cap</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Max Open Positions</span>
+      <span class="info-value">{{ cfg.max_open_positions }} simultaneous</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Daily Loss Limit</span>
+      <span class="info-value">{{ (cfg.daily_loss_limit_pct * 100) | round(0) | int }}% → circuit breaker</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Circuit Breaker</span>
+      <span class="info-value {% if cb_active %}health-error{% else %}health-ok{% endif %}">
+        {{ "ACTIVE — buys suspended" if cb_active else "Clear" }}
+      </span>
+    </div>
+  </div>
+
+  <!-- API Connections -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="card-title-dot" style="background:var(--cyan)"></span>API Connections</span>
+    </div>
+
+    <!-- Alpaca -->
+    <div class="api-row">
+      <div class="api-name">
+        <span class="api-dot ok"></span> Alpaca
+      </div>
+      <div>
+        <div class="api-key-display">{{ alpaca_key_masked }}</div>
+        <div class="api-detail">{{ cfg.alpaca_base_url }}</div>
+      </div>
+      <div class="api-detail">Paper Trading</div>
+      <div class="api-status" style="color:var(--green)">
+        <span class="api-dot ok"></span> Configured
+      </div>
+    </div>
+
+    <!-- Anthropic Claude -->
+    <div class="api-row">
+      <div class="api-name">
+        <span class="api-dot {% if cfg.anthropic_api_key %}ok{% else %}error{% endif %}"></span> Anthropic
+      </div>
+      <div>
+        <div class="api-key-display">{{ anthropic_key_masked }}</div>
+        <div class="api-detail">claude.ai API</div>
+      </div>
+      <div class="api-detail">{{ cfg.claude_model }}</div>
+      <div class="api-status" style="color:{% if cfg.anthropic_api_key %}var(--green){% else %}var(--red){% endif %}">
+        <span class="api-dot {% if cfg.anthropic_api_key %}ok{% else %}error{% endif %}"></span>
+        {{ "Configured" if cfg.anthropic_api_key else "Not Set" }}
+      </div>
+    </div>
+
+    <!-- Ollama Local -->
+    <div class="api-row">
+      <div class="api-name">
+        <span class="api-dot ok"></span> Ollama
+      </div>
+      <div>
+        <div class="api-key-display">localhost:11434</div>
+        <div class="api-detail">{{ cfg.local_llm_base_url }}</div>
+      </div>
+      <div class="api-detail">{{ cfg.local_llm_model }}</div>
+      <div class="api-status" style="color:var(--cyan)">
+        <span class="api-dot ok" style="background:var(--cyan);box-shadow:0 0 5px var(--cyan)"></span>
+        Local GPU
+      </div>
+    </div>
+
+    <!-- CoinGecko -->
+    <div class="api-row">
+      <div class="api-name">
+        <span class="api-dot {% if cfg.coingecko_api_key %}ok{% else %}warn{% endif %}"></span> CoinGecko
+      </div>
+      <div>
+        <div class="api-key-display">{{ coingecko_key_masked }}</div>
+        <div class="api-detail">api.coingecko.com</div>
+      </div>
+      <div class="api-detail">Universe Screener</div>
+      <div class="api-status" style="color:{% if cfg.coingecko_api_key %}var(--green){% else %}var(--amber){% endif %}">
+        <span class="api-dot {% if cfg.coingecko_api_key %}ok{% else %}warn{% endif %}"></span>
+        {{ "Configured" if cfg.coingecko_api_key else "Not Set" }}
+      </div>
+    </div>
+
+    <!-- Model Quality Metrics -->
+    <div class="card-header" style="margin-top:4px; border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
+      <span class="card-title"><span class="card-title-dot" style="background:var(--amber)"></span>Model Quality & Token Telemetry</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Total Input Tokens</span>
+      <span class="info-value mono">{{ "{:,}".format(total_input_tokens) }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Total Output Tokens</span>
+      <span class="info-value mono">{{ "{:,}".format(total_output_tokens) }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Avg Input / Decision</span>
+      <span class="info-value mono">{{ avg_input_tokens }} tok</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Avg Output / Decision</span>
+      <span class="info-value mono">{{ avg_output_tokens }} tok</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">LLM Call Rate</span>
+      <span class="info-value">{{ llm_call_pct }}% of decisions hit LLM</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Avg Confidence (trades)</span>
+      <span class="info-value {% if avg_conf_pct >= 50 %}pos{% else %}neg{% endif %}">{{ avg_conf_pct }}%</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Signal Weights (live)</span>
+      <span class="info-value mono">
+        EMA {{ (current_weights.get('ema', 0.333) * 100) | round(1) }}% &nbsp;·&nbsp;
+        RSI {{ (current_weights.get('rsi', 0.333) * 100) | round(1) }}% &nbsp;·&nbsp;
+        ROC {{ (current_weights.get('roc', 0.333) * 100) | round(1) }}%
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 2: Active Universe ────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title"><span class="card-title-dot" style="background:var(--green)"></span>Active Trading Universe — {{ universe | length }} symbols</span>
+    {% if cfg.coingecko_api_key %}
+    <span class="badge badge-cyan">CoinGecko Dynamic · Refreshes 01:00 UTC daily</span>
+    {% else %}
+    <span class="badge badge-hold">Static (.env)</span>
+    {% endif %}
+  </div>
+  <div class="symbol-grid">
+    {% for sym in universe %}
+    <span class="symbol-pill {% if sym == 'BTC/USD' %}anchor{% endif %}">
+      {% if sym == 'BTC/USD' %}★{% endif %} {{ sym }}
+    </span>
+    {% endfor %}
+  </div>
+  <div style="padding:8px 16px; border-top:1px solid var(--border); font-size:11px; color:var(--txt-3);">
+    ★ BTC/USD is always pinned first — its composite signal feeds macro context to all altcoin decisions
+    &nbsp;·&nbsp; Held positions are retained even if they fall outside the top-{{ cfg.universe_size }} screening
+  </div>
+</div>
+
+<!-- ── Row 3: Data Pipeline + Performance Snapshot ──────────────────────── -->
+<div class="grid-1-1">
+
+  <!-- Data Pipeline -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="card-title-dot" style="background:var(--green)"></span>Data Pipeline Health</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Attribution Window</span>
+      <span class="info-value">24h (decisions age before P&amp;L is computed)</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Attributed Decisions</span>
+      <span class="info-value">{{ attributed_count }} / {{ buy_count + sell_count }} eligible
+        <span class="badge badge-{% if attribution_rate >= 60 %}ok{% else %}warn{% endif %} info-badge">{{ attribution_rate }}%</span>
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Exit Price Method</span>
+      <span class="info-value">Next opposing decision → current price fallback</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Pending Trades</span>
+      <span class="info-value {% if pending_trades > 0 %}health-warn{% else %}health-ok{% endif %}">
+        {{ pending_trades }} pending / partial fills
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Filled Trades</span>
+      <span class="info-value">{{ filled_trades }} of {{ total_trades }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Active Lessons</span>
+      <span class="info-value">{{ active_lesson_count }} active · {{ total_lesson_count }} total (30-day TTL)</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Reflection Cycles</span>
+      <span class="info-value">{{ reflection_count }} lessons from reflection</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Weight Revisions</span>
+      <span class="info-value">{{ weight_revisions }} total · Jaccard dedup threshold 0.55</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Agent Running Since</span>
+      <span class="info-value">
+        {% if first_decision %}
+          {{ first_decision.decided_at[:16].replace('T',' ') }} UTC
+        {% else %}
+          No decisions yet
+        {% endif %}
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">DB Path</span>
+      <span class="info-value mono" style="font-size:11px;">{{ cfg.db_path }}</span>
+    </div>
+  </div>
+
+  <!-- Portfolio snapshot -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><span class="card-title-dot"></span>Latest Performance Snapshot</span>
+    </div>
+    {% if latest_perf %}
+    <div class="info-row">
+      <span class="info-label">Snapshot Time</span>
+      <span class="info-value">{{ latest_perf.recorded_at[:16].replace('T',' ') }} UTC</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Portfolio Value</span>
+      <span class="info-value">{{ latest_perf.portfolio_value | fmt_usd }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Daily Return</span>
+      <span class="info-value {% if (latest_perf.daily_return_pct or 0) >= 0 %}pos{% else %}neg{% endif %}">
+        {{ latest_perf.daily_return_pct | fmt_pct }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Cumulative Return</span>
+      <span class="info-value {% if (latest_perf.cumulative_return_pct or 0) >= 0 %}pos{% else %}neg{% endif %}">
+        {{ latest_perf.cumulative_return_pct | fmt_pct }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Sharpe (30d ann.)</span>
+      <span class="info-value">{{ latest_perf.sharpe_30d | fmt_num(2) }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Max Drawdown (30d)</span>
+      <span class="info-value {% if (latest_perf.max_drawdown_30d or 0) > 0.05 %}neg{% endif %}">
+        {{ latest_perf.max_drawdown_30d | fmt_pct }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Win Rate</span>
+      <span class="info-value {% if (latest_perf.win_rate or 0) >= 0.5 %}pos{% else %}neg{% endif %}">
+        {{ latest_perf.win_rate | fmt_pct }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Total Decisions (snap)</span>
+      <span class="info-value">{{ latest_perf.total_decisions }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Total Trades (snap)</span>
+      <span class="info-value">{{ latest_perf.total_trades }}</span>
+    </div>
+    {% else %}
+    <div class="empty-state">No performance snapshots yet — run at least one trading cycle.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Recent Activity Log ───────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title"><span class="card-title-dot" style="background:var(--amber)"></span>Recent Decision Activity Log</span>
+    <span class="badge badge-hold">Last 30 entries</span>
+  </div>
+  {% if recent_activity %}
+  <div class="log-stream">
+    {% for d in recent_activity %}
+    <div class="log-entry">
+      <span class="log-ts">{{ d.decided_at[:16].replace('T',' ') }}</span>
+      <span class="log-level {% if d.action == 'buy' %}ok{% elif d.action == 'sell' %}warn{% else %}info{% endif %}">
+        {{ d.action | upper }}
+      </span>
+      <span class="log-msg">
+        <span class="log-sym">{{ d.symbol }}</span>
+        conf={{ "%.0f"|format(d.confidence * 100) }}%
+        edge={{ "%.0f"|format(d.edge_estimate * 100) }}%
+        {% if d.composite_signal is not none %}
+        comp={{ "%.3f"|format(d.composite_signal) }}
+        {% endif %}
+        {% if d.outcome_pnl_pct is not none %}
+        → outcome=<span class="{% if d.outcome_pnl_pct >= 0 %}pos{% else %}neg{% endif %}">{{ "%+.2f"|format(d.outcome_pnl_pct * 100) }}%</span>
+        {% else %}
+        → <span class="muted">pending</span>
+        {% endif %}
+        &nbsp;·&nbsp; {{ d.rationale[:80] }}{% if d.rationale|length > 80 %}…{% endif %}
+      </span>
+      <span class="td-mono">{{ d.llm_model[:18] if d.llm_model else "—" }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">No decisions recorded yet.</div>
+  {% endif %}
+</div>
+
+{% endblock %}

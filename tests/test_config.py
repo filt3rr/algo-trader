@@ -52,7 +52,9 @@ def test_live_trading_enabled_true_raises(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_llm_provider_default_is_claude(monkeypatch: pytest.MonkeyPatch) -> None:
     from agent.config import LLMProvider
-    s = _make_settings(monkeypatch)
+    # Set explicitly — .env may override the field default, so we pin it here
+    # to keep the test independent of the developer's local .env configuration.
+    s = _make_settings(monkeypatch, LLM_PROVIDER="claude")
     assert s.llm_provider == LLMProvider.CLAUDE
 
 

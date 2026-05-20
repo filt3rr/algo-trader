@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Lessons — Apex Console{% endblock %}
+{% block topbar_title %}Lessons &amp; Reflections{% endblock %}
+{% block topbar_sub %}{{ lessons | length }} active lessons from nightly reflection{% endblock %}
+
+{% block content %}
+
+<div class="grid-2-1">
+  <!-- Active lessons -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Active Lessons</span>
+    </div>
+    {% if lessons %}
+    <div class="lesson-list">
+      {% for lesson in lessons %}
+      <div class="lesson-item">
+        <div class="lesson-num">{{ loop.index }}</div>
+        <div class="lesson-body">
+          <div class="lesson-text">{{ lesson.lesson }}</div>
+          <div class="lesson-meta">
+            {{ lesson.created_at[:10] if lesson.created_at else '' }}
+            {% if lesson.source %}· {{ lesson.source }}{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No lessons recorded yet. The nightly reflection loop will generate lessons once there are attributed decisions.</div>
+    {% endif %}
+  </div>
+
+  <!-- Weight history summary -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Recent Weight Adjustments</span>
+    </div>
+    {% if weight_history %}
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="right">EMA</th>
+            <th class="right">RSI</th>
+            <th class="right">ROC</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for w in weight_history %}
+          <tr>
+            <td class="td-mono">{{ w.set_at[:10] }}</td>
+            <td class="right">{{ fmt_pct(w.ema * 100) }}</td>
+            <td class="right">{{ fmt_pct(w.rsi * 100) }}</td>
+            <td class="right">{{ fmt_pct(w.roc * 100) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No weight history yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- System health -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">System Health</span>
+  </div>
+  <div class="health-row">
+    <span class="health-label">Mode</span>
+    <span class="health-value">
+      {% if dry_run %}
+        <span class="badge badge-warn">Dry Run</span>
+      {% else %}
+        <span class="badge badge-buy">Live</span>
+      {% endif %}
+    </span>
+  </div>
+  <div class="health-row">
+    <span class="health-label">Dashboard</span>
+    <span class="health-value health-ok">Online</span>
+  </div>
+  <div class="health-row">
+    <span class="health-label">Last Updated</span>
+    <span class="health-value">{{ now.strftime('%Y-%m-%d %H:%M') }} UTC</span>
+  </div>
+  <div class="health-row">
+    <span class="health-label">Active Lessons</span>
+    <span class="health-value">{{ lessons | length }}</span>
+  </div>
+  <div class="health-row">
+    <span class="health-label">Weight Revisions</span>
+    <span class="health-value">{{ weight_history | length }}</span>
+  </div>
+</div>
+{% endblock %}

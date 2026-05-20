@@ -1,0 +1,67 @@
+{% set perf = latest_perf %}
+<div class="kpi-grid"
+     hx-get="/partials/kpis"
+     hx-trigger="every 60s"
+     hx-swap="outerHTML">
+
+  <div class="kpi-card">
+    <div class="kpi-label">Portfolio Value</div>
+    <div class="kpi-value">{{ fmt_usd(perf.portfolio_value if perf else None) }}</div>
+    <div class="kpi-sub">paper account</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Daily Return</div>
+    {% if perf and perf.daily_return_pct is not none %}
+      {% set dr = (perf.daily_return_pct * 100) | round(2) %}
+      <div class="kpi-value {% if dr >= 0 %}positive{% else %}negative{% endif %}">
+        {{ "%+.2f"|format(dr) }}%
+      </div>
+    {% else %}
+      <div class="kpi-value">—</div>
+    {% endif %}
+    <div class="kpi-sub">since midnight UTC</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Cumulative Return</div>
+    {% if perf and perf.cumulative_return_pct is not none %}
+      {% set cr = (perf.cumulative_return_pct * 100) | round(2) %}
+      <div class="kpi-value {% if cr >= 0 %}positive{% else %}negative{% endif %}">
+        {{ "%+.2f"|format(cr) }}%
+      </div>
+    {% else %}
+      <div class="kpi-value">—</div>
+    {% endif %}
+    <div class="kpi-sub">all time</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Sharpe Ratio</div>
+    <div class="kpi-value">{{ fmt_num(perf.sharpe_30d if perf else None, 2) }}</div>
+    <div class="kpi-sub">30d annualised · min 24 periods</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Max Drawdown</div>
+    {% if perf and perf.max_drawdown_30d is not none %}
+      {% set dd = (perf.max_drawdown_30d * 100) | round(2) %}
+      <div class="kpi-value {% if dd > 5 %}negative{% endif %}">{{ "%.2f"|format(dd) }}%</div>
+    {% else %}
+      <div class="kpi-value">—</div>
+    {% endif %}
+    <div class="kpi-sub">30-day rolling</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Win Rate</div>
+    {% if perf and perf.win_rate is not none %}
+      {% set wr = (perf.win_rate * 100) | round(1) %}
+      <div class="kpi-value {% if wr >= 50 %}positive{% else %}negative{% endif %}">{{ wr }}%</div>
+    {% else %}
+      <div class="kpi-value">—</div>
+    {% endif %}
+    <div class="kpi-sub">{{ total_decisions }} decisions · {{ total_trades }} trades</div>
+  </div>
+
+</div>
